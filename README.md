@@ -13,8 +13,8 @@ distance values used.
 
 TODO
 - input the actual duration and distance values that will be used
-- write the function that will record the user's response for time duration
-- write the function that will record the user's response for spacial distance
+- (DONE) write the function that will record the user's response for time duration
+- (DONE) write the function that will record the user's response for spacial distance
 - implement a function to write the recorded information to disk
 - add a prompt to get user information at the beginning of the experiment
 - (?) include breaks in the experiment -- the user already decides when to 

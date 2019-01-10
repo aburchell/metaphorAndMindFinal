@@ -9,7 +9,7 @@ def get_trial_type(n):
         0: 'distance',
         1: 'duration'
     }[math.floor(n/81)]
-    
+
 def get_distance_index(n, array, trials):
     denominator_val = trials/len(array)
     return math.floor(n/denominator_val)
@@ -44,46 +44,132 @@ def present_trial_type_message(win, txt, this_trial_type):
 
 def present_stimulus(win, line, this_distance, this_duration_frames):
     # Wait a certain amount of time
-    core.wait(3)
+    core.wait(1.5)
 
     # Update the line to represent the current stimulus parameters
-    line.start = (-this_distance/2, 0)
-    line.end = (this_distance/2, 0)
+    line.start = [-this_distance/2, 0]
+    line.end = [this_distance/2, 0]
 
-
-
-    print(f"Number of frames: {this_duration_frames}")
-    for frame_num in range(this_duration_frames):
+    for frame_num in range(int(this_duration_frames)):
         line.draw()
         win.flip()
 
     win.flip()
 
+    # Reset line length so it isn't accidentally preserved and shown again to the user
+    line.start = [0, 0]
+    line.end = [0, 0]
+
     return True
 
 
-def collect_distance_response(win):
-    pass
+def collect_distance_response(win, line, mouse):
 
-def collect_duration_response(win):
-    pass
+    # Create a line at center of screen, less than minimum distance
+    line.start = [0, 0]
+    line.end = [0, 0]
+    line.lineColor = 'yellow'
+    line.draw()
+    win.flip()
+
+    # Reset mouse
+    mouse.clickReset()
+
+    # When getTime is set to true, mouse.getPressed will return a
+    #   tuple of size two. The first element will be a list of 3 booleans, 
+    #   each of which corresponds to whether the mouse button 0,1,2
+    #   has been pressed since the last time mouse.clickReset was called.
+    #   The second element will be a list of timestamps of when the
+    #   mouse was clicked.
+    while True not in mouse.getPressed(getTime=True)[0]:
+   
+        # Get mouse position
+        # mouse.getPos() returns a tuple of size 2, indicating the current
+        #   x and y positions -- (0,0) is at the center of the window
+        mouse_position = mouse.getPos()
+
+        # Update line start,end to -/+ mouse x-pos
+        line.start = [-mouse_position[0], 0]
+        line.end = [mouse_position[0], 0]
+        line.draw()
+
+        win.flip()
+
+    # Store x pos so that it can be returned
+    #   Double it, since 0 is at the center of window so the mouse position's
+    #   x value only represents half of the length of the line
+    user_inputted_length = 2*abs(line.start[0])
+
+    # Change the color of the line, or something, to indicate its clicked
+    line.lineColor = 'red'
+    line.draw()
+    win.flip()
+
+    # Wait a second or two
+    core.wait(1.5)
+
+    # Flip the screen to make it blank again
+    win.flip()
+
+    # Reset the color of the line for future use
+    line.lineColor = 'black'
+
+    return user_inputted_length
+
+def collect_duration_response(win, line, mouse):
+    # Present a short line or square or something at the center of screen
+    line.start = [-30, 0]
+    line.end = [30, 0]
+    line.draw()
+    win.flip()
+
+    # Initialize a counter that will keep track of inputted 
+    user_inputted_duration_frames = 0
+
+    # Wait until the mouse is clicked
+    mouse.clickReset()
+    while True not in mouse.getPressed(getTime=True)[0]:
+        pass
+
+    core.wait(0.5)
+    mouse.clickReset()
+    # Once the mouse is clicked, color the line a different color
+    line.lineColor = 'yellow'
+    
+
+    while True not in mouse.getPressed(getTime=True)[0]:
+        user_inputted_duration_frames += 1
+
+        line.draw()
+        win.flip()
+
+    line.lineColor = 'red'
+    line.draw()
+    win.flip()
+
+    line.lineColor = 'black'
+    core.wait(1.5)
+    win.flip()
+
+    return user_inputted_duration_frames
+
 
 
 def main(): 
 
     distances = [50, 100, 150, 200, 250, 300, 350, 400, 450]
-    durations = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    durations = [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5]
+    screen_refresh_rate = 60
 
     win = visual.Window(
-        size=[500,500],
+        #size=[500,500],
         units='pix',
-        fullscr=False,
+        fullscr=True,
         color=[1, 1, 1]
     )
 
     mouse = event.Mouse(
-        visible=True,
-        newPos=(0,0),
+        visible=False,
         win=win
     )
 
@@ -130,7 +216,6 @@ def main():
     # Total number of trials = distances*durations *2, since there are two
     #   types of trials
     number_of_trials = len(distances)*len(durations)*2
-    print(number_of_trials)
 
     # Create a list of indicies between 0 and number_of_trials-1
     # This will be looped over and will determine the conditions for 
@@ -161,7 +246,6 @@ def main():
         ]
 
         # Get the current duration in frames, rather than seconds
-        screen_refresh_rate = 60
         this_duration_frames = screen_refresh_rate*this_duration
 
         # Just to make sure everything is working, print out the trial conditions to the console
@@ -177,14 +261,17 @@ def main():
             win, line, this_distance, this_duration_frames)
 
         # Then wait another period of time
-
+        core.wait(1.5)
 
         # Then either collect a time response or duration response, depending on this_trial_type
         if this_trial_type == "distance": 
-            user_stimulus_estimate = collect_distance_response(win)
+            user_stimulus_estimate = collect_distance_response(win, line, mouse)
+            print(f"Actual length: {this_distance}\nEstimated length: {user_stimulus_estimate}")
         else: # then it's duration 
-            user_stimulus_estimate = collect_duration_response(win)
+            user_stimulus_estimate = collect_duration_response(win, line, mouse)
+            print(f"Actual duration: {this_duration_frames}\nEstimated duration: {user_stimulus_estimate}")
 
-
+        # Write the data to file
+        
 
 main()
