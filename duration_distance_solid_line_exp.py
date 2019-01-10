@@ -17,6 +17,51 @@ def get_distance_index(n, array, trials):
 def get_duration_index(n, array):
     return n%len(array)
 
+def get_user_info(win, txt):
+
+    starting_prompt_text = "Please enter a participant name, then ENTER to continue.\nName: "
+    txt.pos = [-300, 300]
+    txt.text = starting_prompt_text
+    txt.draw()
+    win.flip()
+
+    # Write out the keys that you want to register, then change it into a list of single chars
+    valid_keys_string = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890'
+    valid_keys = list(valid_keys_string)
+    # Add in a few more keys
+    valid_keys.extend(['return','space','underscore','backspace'])
+
+    # This inputting is fairly brittle. qI figured this is probably fine for 
+    #   this early/relatively unimportant step, but it could be made more robust using the 
+    #   information from:
+    #   https://stackoverflow.com/questions/26274454/getting-free-text-string-input-from-participant
+    keys = event.waitKeys(keyList=valid_keys)
+    while 'return' not in keys:
+        # Replace the word space (returned by waitKeys) into the actual space char
+        if keys[-1] == 'space':
+            keys[-1] = ' '
+        elif keys[-1] == 'underscore':
+            keys[-1] = '_'
+
+        # Add the last inputted key to the end of the prompt on screen
+        if keys[-1] == 'backspace':
+            txt.text = txt.text[:-1]
+        else:
+            txt.text += keys[-1]
+
+        txt.draw()
+        win.flip()
+
+        # Wait for some more keys
+        keys = event.waitKeys(keyList=valid_keys)
+
+    win.flip()
+    core.wait(1)
+
+    # Send back all the text after the text from the starting prompt
+    participant_input = txt.text[len(starting_prompt_text):]
+    return participant_input
+
 def present_trial_type_message(win, txt, this_trial_type):
     if this_trial_type == 'distance':
         message_text = "Line Distance (SPATIAL)"
@@ -62,13 +107,12 @@ def present_stimulus(win, line, this_distance, this_duration_frames):
 
     return True
 
-
 def collect_distance_response(win, line, mouse):
 
     # Create a line at center of screen, less than minimum distance
     line.start = [0, 0]
     line.end = [0, 0]
-    line.lineColor = 'yellow'
+    line.lineColor = 'blue'
     line.draw()
     win.flip()
 
@@ -131,10 +175,18 @@ def collect_duration_response(win, line, mouse):
     while True not in mouse.getPressed(getTime=True)[0]:
         pass
 
+    # Wait half a second before resetting the mouse and changing
+    #   the color so that the same click isn't picked up more than
+    #   once and accidentally record a super short participant 
+    #   response.
+    # This is not a super elegant solution, and perhaps should be fixed
+    #   or improved upon in the future. For example, in the current
+    #   implementation the user's response starts to be timed when
+    #   the color changes, not when the participant clicks the mouse
     core.wait(0.5)
     mouse.clickReset()
     # Once the mouse is clicked, color the line a different color
-    line.lineColor = 'yellow'
+    line.lineColor = 'blue'
     
 
     while True not in mouse.getPressed(getTime=True)[0]:
@@ -225,6 +277,8 @@ def main():
     # Shuffle the order of the trial indicies to randomize
     random.shuffle(trial_indicies)
 
+    username = get_user_info(win, txt)
+    print(username)
 
     # Loop through the trial_indicies list, each time through the
     # loop representing one trial
