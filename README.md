@@ -12,13 +12,14 @@ re-examine this asymmetry, eg by changing the spacing of the duration and
 distance values used.
 
 TODO
-- input the actual duration and distance values that will be used
-- implement a function to write the recorded information to disk
-- add a practice subroutine at the beginning of the program
+- (?) make the line appear at a different place on the screen each time
+- (?) add a practice subroutine at the beginning of the program
 - (?) include breaks in the experiment -- the user already decides when to 
 begin a give trial
 - (?) change the prompt telling whether the trial is temporal or spacial to
 pictorial, rather than verbal
+- (DONE) input the actual duration and distance values that will be used
+- (DONE) implement a function to write the recorded information to disk
 - (DONE) write the function that will record the user's response for time duration
 - (DONE) write the function that will record the user's response for spacial distance
 - (DONE) add a prompt to get user information at the beginning of the experiment

@@ -3,6 +3,10 @@ from psychopy import event
 from psychopy import core
 import math
 import random
+import os
+import sys
+import csv
+import datetime
 
 def get_trial_type(n):
     return {
@@ -59,7 +63,7 @@ def get_user_info(win, txt):
     core.wait(1)
 
     # Send back all the text after the text from the starting prompt
-    participant_input = txt.text[len(starting_prompt_text):]
+    participant_input = str(txt.text[len(starting_prompt_text):])
     return participant_input
 
 def present_trial_type_message(win, txt, this_trial_type):
@@ -209,9 +213,13 @@ def collect_duration_response(win, line, mouse):
 
 def main(): 
 
-    distances = [50, 100, 150, 200, 250, 300, 350, 400, 450]
-    durations = [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5]
+    # Distances are in pixels
+    # Durations are in seconds
+    # screen_refresh_rate is in Hz
+    distances = [425, 444, 463, 484, 505, 527, 550, 575, 600]
+    durations = [.500, .629, .792, .997, 1.254, 1.578, 1.987, 2.500, 3.15]
     screen_refresh_rate = 60
+    data_path = '_duration_distance_solid_line_data.csv'
 
     win = visual.Window(
         #size=[500,500],
@@ -277,26 +285,46 @@ def main():
     # Shuffle the order of the trial indicies to randomize
     random.shuffle(trial_indicies)
 
+
+    # Get user information and write the headers to a csv file
     username = get_user_info(win, txt)
     print(username)
 
+    filename = './data/'+username+data_path
+    if os.path.exists(filename):
+        sys.exit(f"Filename '{filename}' already exists.")
+    else:
+        with open(filename, 'a') as fp:
+            writer = csv.writer(fp)
+            writer.writerow(
+                ['trial_num', 'participant', 'time', 'stim_presented',
+                'trial_id', 'trial_type', 'line_distance', 'line_duration',
+                'user_distance', 'user_duration'])
+
+
     # Loop through the trial_indicies list, each time through the
     # loop representing one trial
-    for trial_number in trial_indicies:
+    #   NOTE: 
+    #       trial_num = 0, 1, 2, 3, ..., ie how many times through 
+    #                   the loop it's been
+    #       trial_id = 17, 93, 23, ..., ie the number from the 
+    #                   shuffled list trial_indicies, which 
+    #                   indicates the properties of the trial
+    for trial_num, trial_id in enumerate(trial_indicies):
         
         # First, figure out what type of trial it is,
         # ie time or distance, which will determine which type of
         # response will be collected
-        this_trial_type = get_trial_type(trial_number)
+        this_trial_type = get_trial_type(trial_id)
     
         # Get the distance value that will be used
         this_distance = distances[
-            get_distance_index(trial_number, distances, number_of_trials)
+            get_distance_index(trial_id, distances, number_of_trials)
         ]
         
         # Get the duration value that will be used
         this_duration = durations[
-            get_duration_index(trial_number, durations)
+            get_duration_index(trial_id, durations)
         ]
 
         # Get the current duration in frames, rather than seconds
@@ -321,11 +349,39 @@ def main():
         if this_trial_type == "distance": 
             user_stimulus_estimate = collect_distance_response(win, line, mouse)
             print(f"Actual length: {this_distance}\nEstimated length: {user_stimulus_estimate}")
+
+            # Write the data from this trial to file
+            with open(filename, 'a') as fp:
+                writer = csv.writer(fp)
+                writer.writerow(
+                    [trial_num, username, 
+                    datetime.datetime.now(),
+                    stimulus_finished_presenting,
+                    trial_id, 
+                    this_trial_type, 
+                    this_distance, 
+                    this_duration,
+                    user_stimulus_estimate, 
+                    'NaN'
+                    ])
         else: # then it's duration 
             user_stimulus_estimate = collect_duration_response(win, line, mouse)
             print(f"Actual duration: {this_duration_frames}\nEstimated duration: {user_stimulus_estimate}")
 
-        # Write the data to file
-        
+            # Write the data from this trial to file
+            with open(filename, 'a') as fp:
+                writer = csv.writer(fp)
+                writer.writerow(
+                    [trial_num, username, 
+                    datetime.datetime.now(),
+                    stimulus_finished_presenting,
+                    trial_id, 
+                    this_trial_type, 
+                    this_distance, 
+                    this_duration,
+                    'NaN', 
+                    user_stimulus_estimate/screen_refresh_rate
+                    ])
+
 
 main()
