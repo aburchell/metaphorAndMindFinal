@@ -8,11 +8,11 @@ import sys
 import csv
 import datetime
 
-def get_trial_type(n):
+def get_trial_type(n, trials):
     return {
         0: 'distance',
         1: 'duration'
-    }[math.floor(n/81)]
+    }[math.floor(n/(trials/2))]
 
 def get_distance_index(n, array, trials):
     denominator_val = trials/len(array)
@@ -66,7 +66,7 @@ def get_user_info(win, txt):
     participant_input = str(txt.text[len(starting_prompt_text):])
     return participant_input
 
-def present_trial_type_message(win, txt, this_trial_type):
+def present_trial_type_message(win, txt, this_trial_type, practice):
     if this_trial_type == 'distance':
         message_text = "Line Distance (SPATIAL)"
     else:
@@ -82,6 +82,12 @@ def present_trial_type_message(win, txt, this_trial_type):
     txt.pos = (0,-50)
     txt.draw()
 
+    # If it is a practice round, say so
+    if practice:
+        txt.text = "PRACTICE"
+        txt.pos = (0, 50)
+        txt.draw()
+
     # Flip the window onto the screen
     win.flip()
     # Keep the message there until a key is pressed
@@ -91,9 +97,10 @@ def present_trial_type_message(win, txt, this_trial_type):
     # Return true so that we can check that the message was fully displayed
     return True
 
-def present_stimulus(win, line, this_distance, this_duration_frames):
+def present_stimulus(win, line, this_distance, this_duration_frames,
+                        time_after_click_before_stim):
     # Wait a certain amount of time
-    core.wait(1.5)
+    core.wait(time_after_click_before_stim)
 
     # Update the line to represent the current stimulus parameters
     line.start = [-this_distance/2, 0]
@@ -111,13 +118,22 @@ def present_stimulus(win, line, this_distance, this_duration_frames):
 
     return True
 
-def collect_distance_response(win, line, mouse):
+def collect_distance_response(win, line, mouse, txt,
+                                time_after_user_input_is_finalized,
+                                practice):
 
     # Create a line at center of screen, less than minimum distance
     line.start = [0, 0]
     line.end = [0, 0]
     line.lineColor = 'blue'
     line.draw()
+
+    # If it's practice, give some direction messages
+    if practice:
+        txt.pos = [-300, 250]
+        txt.text = 'Move the mouse to change the length of the line.\nOnce you have the line as long as you want, click once to finalize.\nThe line will turn red, and you will move on to the next trial.'
+        txt.draw()
+
     win.flip()
 
     # Reset mouse
@@ -141,6 +157,9 @@ def collect_distance_response(win, line, mouse):
         line.end = [mouse_position[0], 0]
         line.draw()
 
+        if practice:
+                    txt.draw()
+
         win.flip()
 
     # Store x pos so that it can be returned
@@ -154,7 +173,7 @@ def collect_distance_response(win, line, mouse):
     win.flip()
 
     # Wait a second or two
-    core.wait(1.5)
+    core.wait(time_after_user_input_is_finalized)
 
     # Flip the screen to make it blank again
     win.flip()
@@ -164,14 +183,23 @@ def collect_distance_response(win, line, mouse):
 
     return user_inputted_length
 
-def collect_duration_response(win, line, mouse):
+def collect_duration_response(win, line, mouse, txt,
+                                time_after_user_input_is_finalized,
+                                practice):
     # Present a short line or square or something at the center of screen
     line.start = [-30, 0]
     line.end = [30, 0]
     line.draw()
+
+    # If it's practice, give some direction messages
+    if practice:
+        txt.pos = [-300, 250]
+        txt.text = 'Click once to start.\nTiming will begin when the line turns blue,\nand end when you click again and the line turns red.'
+        txt.draw()
+
     win.flip()
 
-    # Initialize a counter that will keep track of inputted 
+    # Initialize a counter that will keep track of inputted time
     user_inputted_duration_frames = 0
 
     # Wait until the mouse is clicked
@@ -189,37 +217,39 @@ def collect_duration_response(win, line, mouse):
     #   the color changes, not when the participant clicks the mouse
     core.wait(0.5)
     mouse.clickReset()
+
     # Once the mouse is clicked, color the line a different color
     line.lineColor = 'blue'
     
 
+    # While the user hasn't clicked again, keep incrementing a
+    #   counter of how many frames have passed -- this is our
+    #   timer.
     while True not in mouse.getPressed(getTime=True)[0]:
         user_inputted_duration_frames += 1
-
         line.draw()
         win.flip()
 
+    # Now that the user has clicked again, change the line to red
+    #   as feedback
     line.lineColor = 'red'
     line.draw()
     win.flip()
 
+    core.wait(time_after_user_input_is_finalized)
+
+    # Reset the line object back to its normal properties
     line.lineColor = 'black'
-    core.wait(1.5)
+
+    # Clear the screen
     win.flip()
 
     return user_inputted_duration_frames
 
-
-
-def main(): 
-
-    # Distances are in pixels
-    # Durations are in seconds
-    # screen_refresh_rate is in Hz
-    distances = [425, 444, 463, 484, 505, 527, 550, 575, 600]
-    durations = [.500, .629, .792, .997, 1.254, 1.578, 1.987, 2.500, 3.15]
-    screen_refresh_rate = 60
-    data_path = '_duration_distance_solid_line_data.csv'
+def run_experiment(
+    distances, durations, screen_refresh_rate, 
+    data_path, between_stim_and_resp_time, time_after_click_before_stim,
+    time_after_user_input_is_finalized, practice=False):
 
     win = visual.Window(
         #size=[500,500],
@@ -270,20 +300,9 @@ def main():
     txt.draw()
 
     win.flip()
-
     event.waitKeys()
 
-    # Total number of trials = distances*durations *2, since there are two
-    #   types of trials
-    number_of_trials = len(distances)*len(durations)*2
 
-    # Create a list of indicies between 0 and number_of_trials-1
-    # This will be looped over and will determine the conditions for 
-    #       each trial
-    trial_indicies = list(range(number_of_trials))
-    
-    # Shuffle the order of the trial indicies to randomize
-    random.shuffle(trial_indicies)
 
 
     # Get user information and write the headers to a csv file
@@ -297,10 +316,79 @@ def main():
         with open(filename, 'a') as fp:
             writer = csv.writer(fp)
             writer.writerow(
-                ['trial_num', 'participant', 'time', 'stim_presented',
+                ['trial_num', 'participant', 'practice', 'time', 
+                'stim_presented',
                 'trial_id', 'trial_type', 'line_distance', 'line_duration',
                 'user_distance', 'user_duration'])
 
+    # If we want to have some practice rounds, lets do them
+    if practice:
+        run_trials(
+            win,
+            line,
+            txt,
+            mouse,
+            [50, 150], 
+            [1, 2],
+            screen_refresh_rate, 
+            filename,
+            username,
+            between_stim_and_resp_time, 
+            time_after_click_before_stim,
+            time_after_user_input_is_finalized, 
+            practice=True)
+        
+        win.flip()
+        txt.text = "END OF PRACTICE\nClick to continue onto experiment"
+        txt.pos = [0, 0]
+        txt.draw()
+        win.flip()
+        event.waitKeys()
+        win.flip()
+
+    # If not, just get to the real deal
+    run_trials(
+            win,
+            line,
+            txt,
+            mouse,
+            distances, 
+            durations,
+            screen_refresh_rate, 
+            filename,
+            username,
+            between_stim_and_resp_time, 
+            time_after_click_before_stim,
+            time_after_user_input_is_finalized, 
+            practice=False)
+
+def run_trials(
+            win,
+            line,
+            txt,
+            mouse,
+            distances, 
+            durations,
+            screen_refresh_rate, 
+            filename,
+            username,
+            between_stim_and_resp_time, 
+            time_after_click_before_stim,
+            time_after_user_input_is_finalized, 
+            practice=False):
+
+    # Total number of trials = distances*durations *2, since there are two
+    #   types of trials
+    number_of_trials = len(distances)*len(durations)*2
+
+    # Create a list of indicies between 0 and number_of_trials-1
+    # This will be looped over and will determine the conditions for 
+    #       each trial
+    trial_indicies = list(range(number_of_trials))
+    
+    # Shuffle the order of the trial indicies to randomize
+    random.shuffle(trial_indicies)
+    print(trial_indicies)
 
     # Loop through the trial_indicies list, each time through the
     # loop representing one trial
@@ -311,11 +399,12 @@ def main():
     #                   shuffled list trial_indicies, which 
     #                   indicates the properties of the trial
     for trial_num, trial_id in enumerate(trial_indicies):
-        
+        print(f"Trial number: {trial_num}\nCondition ID: {trial_id}")
+
         # First, figure out what type of trial it is,
         # ie time or distance, which will determine which type of
         # response will be collected
-        this_trial_type = get_trial_type(trial_id)
+        this_trial_type = get_trial_type(trial_id, number_of_trials)
     
         # Get the distance value that will be used
         this_distance = distances[
@@ -335,26 +424,30 @@ def main():
 
         # Present a message indicating which type of trial it will be, ie duration or distance
         trial_type_message_presented = present_trial_type_message(
-            win, txt, this_trial_type)
+            win, txt, this_trial_type, practice)
 
 
         # Then present a line of length this_distance for a duration this_duration
         stimulus_finished_presenting = present_stimulus(
-            win, line, this_distance, this_duration_frames)
+            win, line, this_distance, this_duration_frames, 
+            time_after_click_before_stim)
 
         # Then wait another period of time
-        core.wait(1.5)
+        core.wait(between_stim_and_resp_time)
 
         # Then either collect a time response or duration response, depending on this_trial_type
         if this_trial_type == "distance": 
-            user_stimulus_estimate = collect_distance_response(win, line, mouse)
-            print(f"Actual length: {this_distance}\nEstimated length: {user_stimulus_estimate}")
+            user_stimulus_estimate = collect_distance_response(
+                win, line, mouse, txt, time_after_user_input_is_finalized,
+                practice)
 
             # Write the data from this trial to file
             with open(filename, 'a') as fp:
                 writer = csv.writer(fp)
                 writer.writerow(
-                    [trial_num, username, 
+                    [trial_num,
+                    username,
+                    practice,
                     datetime.datetime.now(),
                     stimulus_finished_presenting,
                     trial_id, 
@@ -364,15 +457,19 @@ def main():
                     user_stimulus_estimate, 
                     'NaN'
                     ])
+
         else: # then it's duration 
-            user_stimulus_estimate = collect_duration_response(win, line, mouse)
-            print(f"Actual duration: {this_duration_frames}\nEstimated duration: {user_stimulus_estimate}")
+            user_stimulus_estimate = collect_duration_response(
+                win, line, mouse, txt, time_after_user_input_is_finalized,
+                practice)
 
             # Write the data from this trial to file
             with open(filename, 'a') as fp:
                 writer = csv.writer(fp)
                 writer.writerow(
-                    [trial_num, username, 
+                    [trial_num, 
+                    username,
+                    practice,
                     datetime.datetime.now(),
                     stimulus_finished_presenting,
                     trial_id, 
@@ -382,6 +479,34 @@ def main():
                     'NaN', 
                     user_stimulus_estimate/screen_refresh_rate
                     ])
+
+def main(): 
+
+    # Distances are in pixels
+    # Durations are in seconds
+    # screen_refresh_rate is in Hz
+    distances = [425, 444, 463, 484, 505, 527, 550, 575, 600]
+    durations = [.500, .629, .792, .997, 1.254, 1.578, 1.987, 2.500, 3.15]
+    screen_refresh_rate = 60
+    data_path = '_duration_distance_solid_line_data.csv'
+
+
+    # NOTE: All these times in seconds 
+    # Time between the functions that present the stimulus and 
+    #   record the response
+    between_stim_and_resp_time = 1.5
+    # Time after clicking to continue past the screen that says what
+    #   type of trial it is
+    time_after_click_before_stim = 1.5
+    # Time before next trial, after the user has input their response
+    time_after_user_input_is_finalized = 1.5
+
+
+    run_experiment(
+        distances, durations, screen_refresh_rate, data_path,
+        between_stim_and_resp_time, time_after_click_before_stim,
+        time_after_user_input_is_finalized, practice=True)
+
 
 
 main()
