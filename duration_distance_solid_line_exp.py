@@ -489,7 +489,7 @@ def main():
     durations = [.500, .629, .792, .997, 1.254, 1.578, 1.987, 2.500, 3.15]
     screen_refresh_rate = 60
     data_path = '_duration_distance_solid_line_data.csv'
-
+    want_practice_block = True 
 
     # NOTE: All these times in seconds 
     # Time between the functions that present the stimulus and 
@@ -505,7 +505,7 @@ def main():
     run_experiment(
         distances, durations, screen_refresh_rate, data_path,
         between_stim_and_resp_time, time_after_click_before_stim,
-        time_after_user_input_is_finalized, practice=True)
+        time_after_user_input_is_finalized, want_practice_block)
 
 
 
